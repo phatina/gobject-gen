@@ -151,6 +151,7 @@
                     <child>
                       <object class="GtkEntry" id="parent_camel">
                         <property name="can_focus">True</property>
+                        <property name="text">GObject</property>
                         <property name="invisible_char">&#x25CF;</property>
                       </object>
                       <packing>
@@ -171,6 +172,7 @@
                     <child>
                       <object class="GtkEntry" id="parent">
                         <property name="can_focus">True</property>
+                        <property name="text">G_TYPE_OBJECT</property>
                         <property name="invisible_char">&#x25CF;</property>
                       </object>
                       <packing>
@@ -297,6 +299,19 @@
               </packing>
             </child>
             <child>
+              <object class="GtkButton" id="close-button">
+                <property name="label" translatable="yes">gtk-close</property>
+                <property name="can_focus">False</property>
+                <property name="receives_default">False</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkButton" id="save-button">
                 <property name="label" translatable="yes">gtk-save-as</property>
                 <property name="can_focus">False</property>
@@ -306,7 +321,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
           </object>
