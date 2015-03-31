@@ -477,11 +477,14 @@ def gui_main(klass=None, parent_class=None, include_private=False,
     gtk.main()
 
 
-def no_gui_main(klass=None, parent_class=None, include_private=False,
+def no_gui_main(klass, parent_class=None, include_private=False,
         include_getset=False, include_finalize=False, include_dispose=False):
 
     if parent_class is None:
         parent_class = 'GObject'
+
+    if klass is None:
+        raise ValueError('Class name missing')
 
     package_upper, object_upper, class_lower = guess_class_params(klass)
     data = {
@@ -531,10 +534,13 @@ if __name__ == '__main__':
 
     main = no_gui_main if options.nogui else gui_main
 
-    main(
-        klass=options.klass,
-        parent_class=options.base,
-        include_private=options.private,
-        include_getset=options.getset,
-        include_finalize=options.finalize,
-        include_dispose=options.dispose)
+    try:
+        main(
+            klass=options.klass,
+            parent_class=options.base,
+            include_private=options.private,
+            include_getset=options.getset,
+            include_finalize=options.finalize,
+            include_dispose=options.dispose)
+    except Exception as e:
+        sys.stderr.write('Error: %s\n' % str(e))
