@@ -26,6 +26,7 @@
 #
 # Template text is Public Domain
 
+import argparse
 import os
 import gtk
 import re
@@ -243,7 +244,7 @@ def read_license():
     return license
 
 
-def handle_post(button, ui):
+def save_button_cb(button, ui):
     string_keys = ('class_camel', 'class_lower', 'package_upper',
                    'object_upper', 'parent', 'parent_camel');
     bool_keys = ('props', 'finalize', 'dispose', 'private');
@@ -401,7 +402,8 @@ def about_button_clicked_cb(button, ui):
     about.destroy()
 
 
-def ui_main():
+def ui_main(klass=None, parent_class=None, include_private=False,
+        include_getset=False, include_finalize=False, include_dispose=False):
     ui = gtk.Builder()
 
     # Little hack, so we can call this script from any directory.
@@ -411,24 +413,29 @@ def ui_main():
             'ui.xml'))
 
     # Pre-fill class name.
-    argc = len(sys.argv)
-    if argc > 1 and sys.argv[1]:
+    if klass is not None:
         entry = ui.get_object('class_camel')
-        entry.set_text(sys.argv[1])
+        entry.set_text(klass)
         guess_class_params(entry, ui)
 
-    if argc > 2 and sys.argv[2]:
+    # Pre-fill parent class
+    if parent_class is not None:
         entry = ui.get_object('parent_camel')
-        entry.set_text(sys.argv[2])
+        entry.set_text(parent_class)
         guess_parent_params(entry, ui)
 
+    # Pre-fill check buttons
+    ui.get_object('private').set_active(include_private)
+    ui.get_object('props').set_active(include_getset)
+    ui.get_object('finalize').set_active(include_finalize)
+    ui.get_object('dispose').set_active(include_dispose)
 
     window = ui.get_object('main-window')
     window.show_all()
     window.connect('delete-event', gtk.main_quit);
 
     button = ui.get_object('save-button')
-    button.connect('clicked', handle_post, ui)
+    button.connect('clicked', save_button_cb, ui)
 
     button = ui.get_object('close-button')
     button.connect('clicked', gtk.main_quit, ui)
@@ -442,5 +449,35 @@ def ui_main():
     gtk.main()
 
 
+def parse_args(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--class', dest='klass', help='Class name')
+    parser.add_argument('-b', '--base', dest='base', help='Base class name')
+    parser.add_argument(
+        '-p', '--include-private',
+        dest='private', action='store_true', default=False,
+        help='Include private struct')
+    parser.add_argument(
+        '-g', '--include-get-set',
+        dest='getset', action='store_true', default=False,
+        help='Include GObject property get/set')
+    parser.add_argument(
+        '-f', '--include-finalize',
+        dest='finalize', action='store_true', default=False,
+        help='Include finalize')
+    parser.add_argument(
+        '-d', '--include-dispose',
+        dest='dispose', action='store_true', default=False,
+        help='Include dispose')
+    return parser.parse_args(args)
+
+
 if __name__ == '__main__':
-    ui_main()
+    options = parse_args()
+    ui_main(
+        klass=options.klass,
+        parent_class=options.base,
+        include_private=options.private,
+        include_getset=options.getset,
+        include_finalize=options.finalize,
+        include_dispose=options.dispose)
