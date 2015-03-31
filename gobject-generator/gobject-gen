@@ -45,39 +45,90 @@ PACKAGE_COPYRIGHT = 'Copyright 2015 Red Hat, Inc.\n' \
 # toggle for property skeletons
 # signals
 
-h_template = '''\
+# ------------------------------------------------------------------------------
+# H Template
+
+h_template_header = '''\
 #ifndef %(header_guard)s
 #define %(header_guard)s
 
 #include <glib-object.h>
 
 G_BEGIN_DECLS
+'''
 
+h_template_macros = '''\
 #define %(package_upper)s_TYPE_%(object_upper)s            (%(class_lower)s_get_type ())
-#define %(package_upper)s_%(object_upper)s(o)              (G_TYPE_CHECK_INSTANCE_CAST ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)s))
-#define %(package_upper)s_IS_%(object_upper)s(o)           (G_TYPE_CHECK_INSTANCE_TYPE ((o), %(package_upper)s_TYPE_%(object_upper)s))
+#define %(package_upper)s_%(object_upper)s(o)              (G_TYPE_CHECK_INSTANCE_CAST  ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)s))
+#define %(package_upper)s_IS_%(object_upper)s(o)           (G_TYPE_CHECK_INSTANCE_TYPE  ((o), %(package_upper)s_TYPE_%(object_upper)s))
 #define %(package_upper)s_%(object_upper)s_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sClass))
 #define %(package_upper)s_IS_%(object_upper)s_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), %(package_upper)s_TYPE_%(object_upper)s))
 #define %(package_upper)s_%(object_upper)s_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sClass))
+'''
 
+h_template_macros_priv = '''\
+#define %(package_upper)s_%(object_upper)s_GET_PRIVATE(o)  ((%(class_camel)sPrivate *)((%(package_upper)s_%(object_upper)s (o))->priv))
+'''
+
+h_template_types_decls = '''\
 typedef struct _%(class_camel)s        %(class_camel)s;
 typedef struct _%(class_camel)sClass   %(class_camel)sClass;
+'''
 
+h_template_class_def_nopriv = '''\
 struct _%(class_camel)s{
   %(parent_camel)s parent;
 };
+'''
 
+h_template_class_def_priv = '''\
+struct _%(class_camel)s{
+  %(parent_camel)s parent;
+  gpointer priv;
+};
+'''
+
+h_template_class_meta_def = '''\
 struct _%(class_camel)sClass {
   %(parent_camel)sClass parent_class;
 };
+'''
 
+h_template_methods = '''\
 GType %(class_lower_spacing)s%(class_lower)s_get_type (void) G_GNUC_CONST;
 %(class_camel)s %(class_camel_spacing)s*%(class_lower)s_new (void);
+'''
 
+h_template_footer = '''\
 G_END_DECLS
 
 #endif /* %(header_guard)s */
 '''
+
+def make_h_template(use_priv):
+    if use_priv:
+        return '\n'.join([
+            h_template_header,
+            h_template_macros + h_template_macros_priv,
+            h_template_types_decls,
+            h_template_class_def_priv,
+            h_template_class_meta_def,
+            h_template_methods,
+            h_template_footer])
+    else:
+        return '\n'.join([
+            h_template_header,
+            h_template_macros,
+            h_template_types_decls,
+            h_template_class_def_nopriv,
+            h_template_class_meta_def,
+            h_template_methods,
+            h_template_footer])
+
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# C Template
 
 c_template = '''\
 #include "%(filename)s.h"
@@ -99,7 +150,7 @@ static void
 }
 '''
 
-private_template = '''\
+c_template_private = '''\
 #define %(object_upper)s_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sPrivate))
 
 typedef struct _%(class_camel)sPrivate %(class_camel)sPrivate;
@@ -230,7 +281,7 @@ def handle_post(button, ui):
     extra = []
 
     if data['private']:
-        extra.append(private_template)
+        extra.append(c_template_private)
 
     if data['props']:
         extra.append(prop_template)
@@ -263,7 +314,7 @@ def handle_post(button, ui):
     f = open(folder + data['filename'] + '.h', 'w')
     if license:
         f.write(license + '\n')
-    f.write(h_template % data)
+    f.write(make_h_template(data['private']) % data)
 
     f = open(folder + data['filename'] + '.c', 'w')
     if license:
