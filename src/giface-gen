@@ -42,7 +42,7 @@ h_template = """\
 /* %(filename)s.h */
 
 #ifndef %(header_guard)s
-#define %(header_guard)s 
+#define %(header_guard)s
 
 #include <glib-object.h>
 
