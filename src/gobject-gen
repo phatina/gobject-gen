@@ -334,6 +334,8 @@ def save_button_cb(button, ui):
 
     generate_sources(folder, **data)
 
+    gtk.main_quit()
+
 
 def guess_class_params(class_camel):
     m = re.findall('[A-Z]+[a-z]*', class_camel)
