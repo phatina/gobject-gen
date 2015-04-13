@@ -4,7 +4,8 @@
   <!-- interface-naming-policy toplevel-contextual -->
   <object class="GtkWindow" id="main-window">
     <property name="title" translatable="yes">GObject Generator</property>
-    <property name="resizable">False</property>
+    <property name="resizable">True</property>
+    <property name="default_width">512</property>
     <property name="icon_name">applications-development</property>
     <child>
       <object class="GtkVBox" id="vbox1">
@@ -282,6 +283,68 @@
           </packing>
         </child>
         <child>
+          <object class="GtkFrame" id="frame4">
+            <property name="visible">True</property>
+            <property name="label_xalign">0</property>
+            <property name="shadow_type">none</property>
+            <child>
+              <object class="GtkAlignment" id="alignment4">
+                <property name="top_padding">6</property>
+                <property name="left_padding">12</property>
+                <child>
+                  <object class="GtkVBox" id="vbox3">
+                    <child>
+                      <object class="GtkRadioButton" id="separator-dash">
+                        <property name="label" translatable="yes">Use dash as filename separator</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">False</property>
+                        <property name="draw_indicator">True</property>
+                      </object>
+                      <packing>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkRadioButton" id="separator-underscore">
+                        <property name="label" translatable="yes">Use underscore as filename separator</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">False</property>
+                        <property name="draw_indicator">True</property>
+                        <property name="group">separator-dash</property>
+                      </object>
+                      <packing>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkRadioButton" id="separator-none">
+                        <property name="label" translatable="yes">No separator</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">False</property>
+                        <property name="draw_indicator">True</property>
+                        <property name="group">separator-dash</property>
+                      </object>
+                      <packing>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child type="label">
+              <object class="GtkLabel" id="label10">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">&lt;b&gt;Output&lt;/b&gt;</property>
+                <property name="use_markup">True</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="position">3</property>
+          </packing>
+        </child>
+        <child>
           <object class="GtkHButtonBox" id="hbuttonbox1">
             <property name="layout_style">end</property>
             <child>
@@ -328,7 +391,7 @@
           <packing>
             <property name="expand">False</property>
             <property name="fill">False</property>
-            <property name="position">3</property>
+            <property name="position">4</property>
           </packing>
         </child>
       </object>

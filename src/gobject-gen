@@ -262,7 +262,14 @@ def generate_sources(folder=None, **data):
     data['get_property_spacing'] = ' ' * (len(data['class_lower']) + len('_get_property ('))
     data['set_property_spacing'] = ' ' * (len(data['class_lower']) + len('_set_property ('))
 
-    data['filename'] = data['class_lower'].replace('_', '-')
+    # Filename separator
+    separator = data['filename_separator']
+    if separator is None:
+        separator = '-'
+
+    # Filename itself
+    data['filename'] = data['class_lower'].replace('_', separator)
+
     data['class_init'] = make_class_init(data).strip()
     data['header_guard'] = '__' + data['filename'].upper().replace('.', '_').replace('-', '_') + '_H__'
     extra = []
@@ -331,6 +338,13 @@ def save_button_cb(button, ui):
     select_folder.destroy()
     if folder is None:
         return
+
+    separator = None
+    if ui.get_object('separator-underscore').get_active():
+        separator = '_'
+    elif ui.get_object('separator-none').get_active():
+        separator = ''
+    data['filename_separator'] = separator
 
     generate_sources(folder, **data)
 
@@ -431,7 +445,8 @@ def about_button_clicked_cb(button, ui):
 
 
 def gui_main(klass=None, parent_class=None, include_private=False,
-        include_getset=False, include_finalize=False, include_dispose=False):
+        include_getset=False, include_finalize=False, include_dispose=False,
+        filename_separator=None):
     ui = gtk.Builder()
 
     # Little hack, so we can call this script from any directory.
@@ -474,11 +489,17 @@ def gui_main(klass=None, parent_class=None, include_private=False,
     ui.get_object('class_camel').connect('changed', guess_class_params_cb, ui)
     ui.get_object('parent_camel').connect('changed', guess_parent_params_cb, ui)
 
+    if filename_separator == '_':
+        ui.get_object('separator-underscore').set_active(True)
+    elif filename_separator == '':
+        ui.get_object('separator-none').set_active(True)
+
     gtk.main()
 
 
 def no_gui_main(klass, parent_class=None, include_private=False,
-        include_getset=False, include_finalize=False, include_dispose=False):
+        include_getset=False, include_finalize=False, include_dispose=False,
+        filename_separator=None):
 
     if parent_class is None:
         parent_class = 'GObject'
@@ -497,7 +518,8 @@ def no_gui_main(klass, parent_class=None, include_private=False,
         'private': include_private,
         'props': include_getset,
         'finalize': include_finalize,
-        'dispose': include_dispose}
+        'dispose': include_dispose,
+        'filename_separator': filename_separator}
 
     generate_sources(**data)
 
@@ -526,11 +548,25 @@ def parse_args(args=sys.argv[1:]):
         '-y', '--no-gui',
         dest='nogui', action='store_true', default=False,
         help='Generate source files without GUI')
+    parser.add_argument(
+        '-u', '--sep-underscore',
+        dest='sep_underscore', action='store_true', default=False,
+        help='Use underscore as filename separator (default is dash)')
+    parser.add_argument(
+        '-n', '--no-sep',
+        dest='sep_none', action='store_true', default=False,
+        help='Use no filename separator (default is dash)')
     return parser.parse_args(args)
 
 
 if __name__ == '__main__':
     options = parse_args()
+
+    separator = None
+    if options.sep_underscore:
+        separator = '_'
+    elif options.sep_none:
+        separator = ''
 
     main = no_gui_main if options.nogui else gui_main
 
@@ -541,6 +577,7 @@ if __name__ == '__main__':
             include_private=options.private,
             include_getset=options.getset,
             include_finalize=options.finalize,
-            include_dispose=options.dispose)
+            include_dispose=options.dispose,
+            filename_separator=separator)
     except Exception as e:
         sys.stderr.write('Error: %s\n' % str(e))
