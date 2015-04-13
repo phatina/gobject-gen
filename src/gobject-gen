@@ -152,8 +152,6 @@ static void
 '''
 
 c_template_private = '''\
-#define %(object_upper)s_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sPrivate))
-
 typedef struct _%(class_camel)sPrivate %(class_camel)sPrivate;
 
 struct _%(class_camel)sPrivate
