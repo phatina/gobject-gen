@@ -76,25 +76,6 @@ typedef struct _%(class_camel)s        %(class_camel)s;
 typedef struct _%(class_camel)sClass   %(class_camel)sClass;
 '''
 
-h_template_class_def_nopriv = '''\
-struct _%(class_camel)s{
-  %(parent_camel)s parent;
-};
-'''
-
-h_template_class_def_priv = '''\
-struct _%(class_camel)s{
-  %(parent_camel)s parent;
-  gpointer priv;
-};
-'''
-
-h_template_class_meta_def = '''\
-struct _%(class_camel)sClass {
-  %(parent_camel)sClass parent_class;
-};
-'''
-
 h_template_methods = '''\
 GType %(class_lower_spacing)s%(class_lower)s_get_type (void) G_GNUC_CONST;
 %(class_camel)s %(class_camel_spacing)s*%(class_lower)s_new (void);
@@ -112,8 +93,6 @@ def make_h_template(use_priv):
             h_template_header,
             h_template_macros + h_template_macros_priv,
             h_template_types_decls,
-            h_template_class_def_priv,
-            h_template_class_meta_def,
             h_template_methods,
             h_template_footer])
     else:
@@ -121,22 +100,43 @@ def make_h_template(use_priv):
             h_template_header,
             h_template_macros,
             h_template_types_decls,
-            h_template_class_def_nopriv,
-            h_template_class_meta_def,
             h_template_methods,
             h_template_footer])
+
 
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
 # C Template
 
-c_template = '''\
+c_template_header = '''\
 #include "%(filename)s.h"
+'''
 
+c_template_class_def_nopriv = '''\
+struct _%(class_camel)s{
+  %(parent_camel)s parent;
+};
+'''
+
+c_template_class_def_priv = '''\
+struct _%(class_camel)s{
+  %(parent_camel)s parent;
+  gpointer priv;
+};
+'''
+
+c_template_class_meta_def = '''\
+struct _%(class_camel)sClass {
+  %(parent_camel)sClass parent_class;
+};
+'''
+
+c_template_type = '''\
 G_DEFINE_TYPE (%(class_camel)s, %(class_lower)s, %(parent)s)
+'''
 
-%(extra)s
+c_template_body = '''\
 %(class_init)s
 
 static void
@@ -151,16 +151,18 @@ static void
 }
 '''
 
-c_template_private = '''\
+c_template_private_decl = '''\
 typedef struct _%(class_camel)sPrivate %(class_camel)sPrivate;
+'''
 
+c_template_private_def = '''\
 struct _%(class_camel)sPrivate
 {
   // TODO: Add members here.
 };
 '''
 
-prop_template = '''\
+c_template_prop = '''\
 static void
 %(class_lower)s_get_property (GObject *object, guint property_id,
 %(get_property_spacing)sGValue *value, GParamSpec *pspec)
@@ -184,7 +186,7 @@ static void
 }
 '''
 
-dispose_template = '''\
+c_template_dispose = '''\
 static void
 %(class_lower)s_dispose (GObject *object)
 {
@@ -192,13 +194,46 @@ static void
 }
 '''
 
-finalize_template = '''\
+c_template_finalize = '''\
 static void
 %(class_lower)s_finalize (GObject *object)
 {
   G_OBJECT_CLASS (%(class_lower)s_parent_class)->finalize (object);
 }
 '''
+
+def make_c_template(private=False, props=False, dispose=False,
+                    finalize=False):
+    c_template = [c_template_header]
+
+    if private:
+        c_template.extend([
+            c_template_private_decl,
+            c_template_class_def_priv,
+            c_template_class_meta_def])
+    else:
+        c_template.extend([
+            c_template_class_def_nopriv,
+            c_template_class_meta_def])
+
+    if private:
+        c_template.append(c_template_private_def)
+
+    c_template.append(c_template_type)
+
+    if props:
+        c_template.append(c_template_prop)
+
+    if dispose:
+        c_template.append(c_template_dispose)
+
+    if finalize:
+        c_template.append(c_template_finalize)
+
+    c_template.append(c_template_body)
+
+    return '\n'.join(c_template)
+
 
 def make_class_init(data):
     lines = [
@@ -272,18 +307,6 @@ def generate_sources(folder=None, **data):
 
     data['class_init'] = make_class_init(data).strip()
     data['header_guard'] = '__' + data['class_lower'].upper().replace('.', '_').replace('-', '_') + '_H__'
-    extra = []
-
-    if data['private']:
-        extra.append(c_template_private)
-    if data['props']:
-        extra.append(prop_template)
-    if data['dispose']:
-        extra.append(dispose_template)
-    if data['finalize']:
-        extra.append(finalize_template)
-
-    data['extra'] = '\n'.join([x % data for x in extra])
 
     license = read_license()
 
@@ -297,7 +320,13 @@ def generate_sources(folder=None, **data):
     with open(os.path.join(folder, data['filename'] + '.c'), 'w') as f:
         if license:
             f.write(license + '\n')
-        f.write(c_template % data)
+
+        f.write(
+            make_c_template(
+                data['private'],
+                data['props'],
+                data['dispose'],
+                data['finalize']) % data)
 
 
 def save_button_cb(button, ui):
