@@ -26,6 +26,7 @@
 #
 # Template text is Public Domain
 
+import abc
 import argparse
 import os
 import gtk
@@ -41,10 +42,6 @@ PACKAGE_AUTHORS = ['Peter Hatina <phatina@redhat.com>',
 PACKAGE_COPYRIGHT = 'Copyright 2015 Red Hat, Inc.\n' \
                     'Copyright 2009 Intel Corporation\n' \
                     'Copyright 2005 Ross Burton, Dafydd Harries'
-
-# TODO:
-# toggle for property skeletons
-# signals
 
 # ------------------------------------------------------------------------------
 # H Template
@@ -235,322 +232,350 @@ def make_c_template(private=False, props=False, dispose=False,
     return '\n'.join(c_template)
 
 
-def make_class_init(data):
-    lines = [
-        'static void',
-        '%(class_lower)s_class_init (%(class_camel)sClass *klass)',
-        '{'
-        ]
+class Generator(object):
+    def __init__(self, klass, parent_class=None, include_private=False,
+            include_getset=False, include_finalize=False,
+            include_dispose=False, filename_separator=None):
+        self.klass = klass
 
-    if data['dispose'] or data['finalize'] or data['private']:
-        lines.append('  GObjectClass *object_class = G_OBJECT_CLASS (klass);')
-        lines.append('')
+        if parent_class is None:
+            parent_class = 'GObject'
+        self.parent_class = parent_class
 
-    if data['private']:
-        lines.append(
-            '  g_type_class_add_private (klass, '
-            'sizeof (%(class_camel)sPrivate));')
+        self.private = include_private
+        self.props = include_getset
+        self.finalize = include_finalize
+        self.dispose = include_dispose
+        self.filename_separator = filename_separator
 
-    if data['dispose'] or data['finalize'] or data['props']:
-        lines.append('')
+    def make_template_data(self):
+        package_upper, object_upper, class_lower = self.guess_class_params(self.klass)
 
-    if data['props']:
-        lines.append('  object_class->get_property = %(class_lower)s_get_property;')
-        lines.append('  object_class->set_property = %(class_lower)s_set_property;')
+        return {
+            'class_camel': self.klass,
+            'class_lower': class_lower,
+            'package_upper': package_upper,
+            'object_upper': object_upper,
+            'parent': self.guess_parent_params(self.parent_class),
+            'parent_camel': self.parent_class,
+            'private': self.private,
+            'props': self.props,
+            'finalize': self.finalize,
+            'dispose': self.dispose,
+            'filename_separator': self.filename_separator}
 
-    if data['dispose']:
-        lines.append('  object_class->dispose = %(class_lower)s_dispose;')
+    def generate_sources(self, folder=None, **data):
+        if not data.get('class_camel') or not data.get('class_lower'):
+            raise ValueError('Class name missing')
 
-    if data['finalize']:
-        lines.append('  object_class->finalize = %(class_lower)s_finalize;')
+        # If no folder name supplied, let's assume that we generate sources in
+        # current working directory.
+        if not folder:
+            # None or empty string
+            folder = os.getcwd()
 
-    lines.append('}')
-    return ''.join([line % data + '\n' for line in lines])
+        # Spacing members
+        data_lower_len = len('GType')
+        data_camel_len = len(data['class_camel'])
+        data_lower_spacing = data_camel_len - data_lower_len if data_camel_len > data_lower_len else 0
+        data_camel_spacing = data_lower_len - data_camel_len if data_lower_len > data_camel_len else 0
+        data['class_lower_spacing'] = ' ' * (data_lower_spacing + 1)
+        data['class_camel_spacing'] = ' ' * data_camel_spacing
+        data['get_property_spacing'] = ' ' * (len(data['class_lower']) + len('_get_property ('))
+        data['set_property_spacing'] = ' ' * (len(data['class_lower']) + len('_set_property ('))
 
+        # Filename separator
+        separator = data['filename_separator']
+        if separator is None:
+            separator = '-'
 
-def read_license():
-    license = ''
-    license_filename = 'license.txt'
-    if os.path.exists(license_filename):
-        with open(license_filename, 'r') as fin_license:
-            license = fin_license.read()
-    return license
+        # Filename itself
+        data['filename'] = data['class_lower'].replace('_', separator)
 
+        data['class_init'] = self.make_class_init(data).strip()
+        data['header_guard'] = '__' + data['class_lower'].upper().replace('.', '_').replace('-', '_') + '_H__'
 
-def generate_sources(folder=None, **data):
-    if not data.get('class_camel') or not data.get('class_lower'):
-        raise ValueError('Class name missing')
+        license = self.read_license()
 
-    # If no folder name supplied, let's assume that we generate sources in
-    # current working directory.
-    if not folder:
-        # None or empty string
-        folder = os.getcwd()
+        # Write header file.
+        with open(os.path.join(folder, data['filename'] + '.h'), 'w') as f:
+            if license:
+                f.write(license + '\n')
+            f.write(make_h_template(data['private']) % data)
 
-    # Spacing members
-    data_lower_len = len('GType')
-    data_camel_len = len(data['class_camel'])
-    data_lower_spacing = data_camel_len - data_lower_len if data_camel_len > data_lower_len else 0
-    data_camel_spacing = data_lower_len - data_camel_len if data_lower_len > data_camel_len else 0
-    data['class_lower_spacing'] = ' ' * (data_lower_spacing + 1)
-    data['class_camel_spacing'] = ' ' * data_camel_spacing
-    data['get_property_spacing'] = ' ' * (len(data['class_lower']) + len('_get_property ('))
-    data['set_property_spacing'] = ' ' * (len(data['class_lower']) + len('_set_property ('))
+        # Write source file.
+        with open(os.path.join(folder, data['filename'] + '.c'), 'w') as f:
+            if license:
+                f.write(license + '\n')
 
-    # Filename separator
-    separator = data['filename_separator']
-    if separator is None:
-        separator = '-'
+            f.write(
+                make_c_template(
+                    data['private'],
+                    data['props'],
+                    data['dispose'],
+                    data['finalize']) % data)
 
-    # Filename itself
-    data['filename'] = data['class_lower'].replace('_', separator)
+    def read_license(self, filename=None):
+        license = ''
+        if filename is None:
+            filename = 'license.txt'
+        if os.path.exists(filename):
+            with open(filename, 'r') as fin_license:
+                license = fin_license.read()
+        return license
 
-    data['class_init'] = make_class_init(data).strip()
-    data['header_guard'] = '__' + data['class_lower'].upper().replace('.', '_').replace('-', '_') + '_H__'
+    @staticmethod
+    def make_class_init(data):
+        lines = [
+            'static void',
+            '%(class_lower)s_class_init (%(class_camel)sClass *klass)',
+            '{'
+            ]
 
-    license = read_license()
+        if data['dispose'] or data['finalize'] or data['private']:
+            lines.append('  GObjectClass *object_class = G_OBJECT_CLASS (klass);')
+            lines.append('')
 
-    # Write header file.
-    with open(os.path.join(folder, data['filename'] + '.h'), 'w') as f:
-        if license:
-            f.write(license + '\n')
-        f.write(make_h_template(data['private']) % data)
+        if data['private']:
+            lines.append(
+                '  g_type_class_add_private (klass, '
+                'sizeof (%(class_camel)sPrivate));')
 
-    # Write source file.
-    with open(os.path.join(folder, data['filename'] + '.c'), 'w') as f:
-        if license:
-            f.write(license + '\n')
+        if data['dispose'] or data['finalize'] or data['props']:
+            lines.append('')
 
-        f.write(
-            make_c_template(
-                data['private'],
-                data['props'],
-                data['dispose'],
-                data['finalize']) % data)
+        if data['props']:
+            lines.append('  object_class->get_property = %(class_lower)s_get_property;')
+            lines.append('  object_class->set_property = %(class_lower)s_set_property;')
 
+        if data['dispose']:
+            lines.append('  object_class->dispose = %(class_lower)s_dispose;')
 
-def save_button_cb(button, ui):
-    string_keys = (
-        'class_camel', 'class_lower', 'package_upper', 'object_upper',
-        'parent', 'parent_camel')
-    bool_keys = ('props', 'finalize', 'dispose', 'private')
-    data = {}
+        if data['finalize']:
+            lines.append('  object_class->finalize = %(class_lower)s_finalize;')
 
-    for key in string_keys:
-        # TODO: sanity check against nulls
-        data[key] = ui.get_object(key).get_text()
+        lines.append('}')
+        return ''.join([line % data + '\n' for line in lines])
 
-    for key in bool_keys:
-        data[key] = ui.get_object(key).get_active()
-
-    if (data['class_lower'] == ''):
-        dlg = gtk.MessageDialog(
-            ui.get_object('main-window'),
-            gtk.DIALOG_MODAL,
-            gtk.MESSAGE_ERROR, gtk.BUTTONS_OK)
-        dlg.set_markup('No class name specified!')
-        dlg.run()
-        dlg.destroy()
-        return
-
-    folder = None
-    select_folder = gtk.FileChooserDialog(
-        title='Select Destination',
-        action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-        buttons=(gtk.STOCK_CANCEL,
-            gtk.RESPONSE_CANCEL,
-            gtk.STOCK_OPEN,
-            gtk.RESPONSE_ACCEPT))
-    select_folder.set_current_folder(os.getcwd())
-    if select_folder.run() == gtk.RESPONSE_ACCEPT:
-        folder = select_folder.get_filename() + '/'
-    select_folder.destroy()
-    if folder is None:
-        return
-
-    separator = None
-    if ui.get_object('separator-underscore').get_active():
-        separator = '_'
-    elif ui.get_object('separator-none').get_active():
-        separator = ''
-    data['filename_separator'] = separator
-
-    generate_sources(folder, **data)
-
-    gtk.main_quit()
-
-
-def guess_class_params(class_camel):
-    m = re.findall('[A-Z]+[a-z]*', class_camel)
-    if (m):
-      s = m[0]
-    else:
-      s = ''
-
-    package_upper = s.upper()
-
-    if (m and len(m) > 1):
-      s = m[1]
-      i = 2
-      while (i < len(m)):
-        s = s + '_' + m[i]
-        i = i + 1
-    else:
-       s = ''
-
-    object_upper = s.upper()
-
-    if (m):
-      s = m[0]
-      i = 1
-      while (i < len(m)):
-        s = s + '_' + m[i]
-        i = i + 1
-    else:
-      s = ''
-
-    class_lower = s.lower()
-
-    return package_upper, object_upper, class_lower
-
-
-def guess_class_params_cb(entry, ui):
-    package_upper, object_upper, class_lower = guess_class_params(entry.get_text())
-
-    ui.get_object('package_upper').set_text(package_upper)
-    ui.get_object('object_upper').set_text(object_upper)
-    ui.get_object('class_lower').set_text(class_lower)
-
-
-def guess_parent_params(parent_camel):
-    if parent_camel == 'GObject':
-        # special case GObject
-        s = 'G_TYPE_OBJECT'
-    else:
-        m = re.findall('[A-Z]+[a-z]*', parent_camel)
-        s = ''
+    @staticmethod
+    def guess_class_params(class_camel):
+        m = re.findall('[A-Z]+[a-z]*', class_camel)
         if (m):
-            s = m[0] + '_TYPE'
-            if (len(m) > 1):
-                i = 1
-                while (i < len(m)):
-                    s = s + '_' + m[i]
-                    i = i + 1
+          s = m[0]
+        else:
+          s = ''
 
-    return s.upper()
+        package_upper = s.upper()
 
+        if (m and len(m) > 1):
+          s = m[1]
+          i = 2
+          while (i < len(m)):
+            s = s + '_' + m[i]
+            i = i + 1
+        else:
+           s = ''
 
-def guess_parent_params_cb(entry, ui):
-    ui.get_object('parent').set_text(
-        guess_parent_params(
-            entry.get_text()))
+        object_upper = s.upper()
 
+        if (m):
+          s = m[0]
+          i = 1
+          while (i < len(m)):
+            s = s + '_' + m[i]
+            i = i + 1
+        else:
+          s = ''
 
-def about_button_clicked_cb(button, ui):
-    about = gtk.AboutDialog()
-    about.set_transient_for(ui.get_object('main-window'))
-    about.set_name(PACKAGE_NAME)
-    about.set_version(PACKAGE_VERSION)
-    about.set_authors(PACKAGE_AUTHORS)
-    about.set_copyright(PACKAGE_COPYRIGHT);
-    about.set_license('''
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+        class_lower = s.lower()
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+        return package_upper, object_upper, class_lower
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-                       ''')
-    about.set_comments('Generates GObjects from the given parameters')
-    about.set_logo_icon_name('applications-development')
-    about.run()
-    about.destroy()
+    @staticmethod
+    def guess_parent_params(parent_camel):
+        if parent_camel == 'GObject':
+            # special case GObject
+            s = 'G_TYPE_OBJECT'
+        else:
+            m = re.findall('[A-Z]+[a-z]*', parent_camel)
+            s = ''
+            if (m):
+                s = m[0] + '_TYPE'
+                if (len(m) > 1):
+                    i = 1
+                    while (i < len(m)):
+                        s = s + '_' + m[i]
+                        i = i + 1
 
+        return s.upper()
 
-def gui_main(klass=None, parent_class=None, include_private=False,
-        include_getset=False, include_finalize=False, include_dispose=False,
-        filename_separator=None):
-    ui = gtk.Builder()
-
-    # Little hack, so we can call this script from any directory.
-    ui.add_from_file(
-        os.path.join(
-            os.path.dirname(__file__),
-            'ui.xml'))
-
-    # Pre-fill class name.
-    if klass is not None:
-        entry = ui.get_object('class_camel')
-        entry.set_text(klass)
-        guess_class_params_cb(entry, ui)
-
-    # Pre-fill parent class
-    if parent_class is not None:
-        entry = ui.get_object('parent_camel')
-        entry.set_text(parent_class)
-        guess_parent_params_cb(entry, ui)
-
-    # Pre-fill check buttons
-    ui.get_object('private').set_active(include_private)
-    ui.get_object('props').set_active(include_getset)
-    ui.get_object('finalize').set_active(include_finalize)
-    ui.get_object('dispose').set_active(include_dispose)
-
-    window = ui.get_object('main-window')
-    window.show_all()
-    window.connect('delete-event', gtk.main_quit);
-
-    button = ui.get_object('save-button')
-    button.connect('clicked', save_button_cb, ui)
-
-    button = ui.get_object('close-button')
-    button.connect('clicked', gtk.main_quit, ui)
-
-    button = ui.get_object('about-button')
-    button.connect('clicked', about_button_clicked_cb, ui)
-
-    ui.get_object('class_camel').connect('changed', guess_class_params_cb, ui)
-    ui.get_object('parent_camel').connect('changed', guess_parent_params_cb, ui)
-
-    if filename_separator == '_':
-        ui.get_object('separator-underscore').set_active(True)
-    elif filename_separator == '':
-        ui.get_object('separator-none').set_active(True)
-
-    gtk.main()
+    @abc.abstractmethod
+    def generate(self):
+        pass
 
 
-def no_gui_main(klass, parent_class=None, include_private=False,
-        include_getset=False, include_finalize=False, include_dispose=False,
-        filename_separator=None):
+class GuiGenerator(Generator):
+    def __init__(self, klass=None, parent_class=None, include_private=False,
+            include_getset=False, include_finalize=False,
+            include_dispose=False, filename_separator=None):
+        super(GuiGenerator, self).__init__(
+            klass, parent_class, include_private, include_getset,
+            include_finalize, include_dispose, filename_separator)
 
-    if parent_class is None:
-        parent_class = 'GObject'
+        # Build the main window.
+        self.ui = gtk.Builder()
+        # Little hack, so we can call this script from any directory.
+        self.ui.add_from_file(
+            os.path.join(
+                os.path.dirname(__file__),
+                'ui.xml'))
 
-    if klass is None:
-        raise ValueError('Class name missing')
+        # Pre-fill class name.
+        if klass is not None:
+            entry = self.ui.get_object('class_camel')
+            entry.set_text(klass)
+            self.guess_class_params_cb(entry)
 
-    package_upper, object_upper, class_lower = guess_class_params(klass)
-    data = {
-        'class_camel': klass,
-        'class_lower': class_lower,
-        'package_upper': package_upper,
-        'object_upper': object_upper,
-        'parent': guess_parent_params(parent_class),
-        'parent_camel': parent_class,
-        'private': include_private,
-        'props': include_getset,
-        'finalize': include_finalize,
-        'dispose': include_dispose,
-        'filename_separator': filename_separator}
+        # Pre-fill parent class
+        if parent_class is not None:
+            entry = self.ui.get_object('parent_camel')
+            entry.set_text(parent_class)
+            self.guess_parent_params_cb(entry)
 
-    generate_sources(**data)
+        # Pre-fill check buttons
+        self.ui.get_object('private').set_active(include_private)
+        self.ui.get_object('props').set_active(include_getset)
+        self.ui.get_object('finalize').set_active(include_finalize)
+        self.ui.get_object('dispose').set_active(include_dispose)
+
+        window = self.ui.get_object('main-window')
+        window.show_all()
+        window.connect('delete-event', gtk.main_quit);
+
+        button = self.ui.get_object('save-button')
+        button.connect('clicked', self.save_button_cb)
+
+        button = self.ui.get_object('close-button')
+        button.connect('clicked', gtk.main_quit)
+
+        button = self.ui.get_object('about-button')
+        button.connect('clicked', self.about_button_clicked_cb)
+
+        self.ui.get_object('class_camel').connect('changed', self.guess_class_params_cb)
+        self.ui.get_object('parent_camel').connect('changed', self.guess_parent_params_cb)
+
+        if filename_separator == '_':
+            self.ui.get_object('separator-underscore').set_active(True)
+        elif filename_separator == '':
+            self.ui.get_object('separator-none').set_active(True)
+
+    def generate(self):
+        self.ui.get_object('main-window').show_all()
+        gtk.main()
+
+    def make_template_data(self):
+        self.klass = self.ui.get_object('class_camel').get_text()
+        self.parent_class = self.ui.get_object('parent_camel').get_text()
+        self.private = self.ui.get_object('private').get_active()
+        self.props = self.ui.get_object('props').get_active()
+        self.finalize = self.ui.get_object('finalize').get_active()
+        self.dispose = self.ui.get_object('dispose').get_active()
+
+        self.filename_separator = '-'
+        if self.ui.get_object('separator-underscore').get_active():
+            self.filename_separator = '_'
+        elif self.ui.get_object('separator-none').get_active():
+            self.filename_separator = ''
+
+        return Generator.make_template_data(self)
+
+    def save_button_cb(self, button):
+        # Generate data dict for a template.
+        data = self.make_template_data()
+
+        # Check for all mandatory fields.
+        if (data['class_lower'] == ''):
+            dlg = gtk.MessageDialog(
+                self.ui.get_object('main-window'),
+                gtk.DIALOG_MODAL,
+                gtk.MESSAGE_ERROR, gtk.BUTTONS_OK)
+            dlg.set_markup('No class name specified!')
+            dlg.run()
+            dlg.destroy()
+            return
+
+        # Get a save folder.
+        folder = None
+        select_folder = gtk.FileChooserDialog(
+            title='Select Destination',
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            buttons=(gtk.STOCK_CANCEL,
+                gtk.RESPONSE_CANCEL,
+                gtk.STOCK_OPEN,
+                gtk.RESPONSE_ACCEPT))
+        select_folder.set_current_folder(os.getcwd())
+        if select_folder.run() == gtk.RESPONSE_ACCEPT:
+            folder = select_folder.get_filename() + '/'
+        select_folder.destroy()
+        if folder is None:
+            return
+
+        # Generate sources.
+        self.generate_sources(folder, **data)
+
+        # Quit when saved.
+        gtk.main_quit()
+
+    def guess_class_params_cb(self, entry):
+        package_upper, object_upper, class_lower = self.guess_class_params(entry.get_text())
+
+        self.ui.get_object('package_upper').set_text(package_upper)
+        self.ui.get_object('object_upper').set_text(object_upper)
+        self.ui.get_object('class_lower').set_text(class_lower)
+
+    def guess_parent_params_cb(self, entry):
+        self.ui.get_object('parent').set_text(
+            self.guess_parent_params(
+                entry.get_text()))
+
+    def about_button_clicked_cb(self, button):
+        about = gtk.AboutDialog()
+        about.set_transient_for(self.ui.get_object('main-window'))
+        about.set_name(PACKAGE_NAME)
+        about.set_version(PACKAGE_VERSION)
+        about.set_authors(PACKAGE_AUTHORS)
+        about.set_copyright(PACKAGE_COPYRIGHT);
+        about.set_license('''
+        This program is free software: you can redistribute it and/or modify
+        it under the terms of the GNU General Public License as published by
+        the Free Software Foundation, either version 3 of the License, or
+        (at your option) any later version.
+
+        This program is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+        GNU General Public License for more details.
+
+        You should have received a copy of the GNU General Public License
+        along with this program.  If not, see <http://www.gnu.org/licenses/>.
+                           ''')
+        about.set_comments('Generates GObjects from the given parameters')
+        about.set_logo_icon_name('applications-development')
+        about.run()
+        about.destroy()
+
+
+class CliGenerator(Generator):
+    def __init__(self, klass, parent_class=None, include_private=False,
+            include_getset=False, include_finalize=False,
+            include_dispose=False, filename_separator=None):
+        super(CliGenerator, self).__init__(
+            klass, parent_class, include_private, include_getset,
+            include_finalize, include_dispose, filename_separator)
+
+    def generate(self):
+        # Skip folder argument, we generate in $PWD
+        self.generate_sources(**self.make_template_data())
 
 
 def parse_args(args=sys.argv[1:]):
@@ -597,10 +622,10 @@ if __name__ == '__main__':
     elif options.sep_none:
         separator = ''
 
-    main = no_gui_main if options.nogui else gui_main
+    generator_cls = CliGenerator if options.nogui else GuiGenerator
 
     try:
-        main(
+        g = generator_cls(
             klass=options.klass,
             parent_class=options.base,
             include_private=options.private,
@@ -608,5 +633,6 @@ if __name__ == '__main__':
             include_finalize=options.finalize,
             include_dispose=options.dispose,
             filename_separator=separator)
+        g.generate()
     except Exception as e:
         sys.stderr.write('Error: %s\n' % str(e))
