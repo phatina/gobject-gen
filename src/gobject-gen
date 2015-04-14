@@ -112,13 +112,13 @@ c_template_header = '''\
 
 c_template_class_def_nopriv = '''\
 struct _%(class_camel)s{
-  %(parent_camel)s parent;
+  %(parent_camel)s parent_instance;
 };
 '''
 
 c_template_class_def_priv = '''\
 struct _%(class_camel)s{
-  %(parent_camel)s parent;
+  %(parent_camel)s parent_instance;
   gpointer priv;
 };
 '''
