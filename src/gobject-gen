@@ -271,7 +271,7 @@ def generate_sources(folder=None, **data):
     data['filename'] = data['class_lower'].replace('_', separator)
 
     data['class_init'] = make_class_init(data).strip()
-    data['header_guard'] = '__' + data['filename'].upper().replace('.', '_').replace('-', '_') + '_H__'
+    data['header_guard'] = '__' + data['class_lower'].upper().replace('.', '_').replace('-', '_') + '_H__'
     extra = []
 
     if data['private']:
