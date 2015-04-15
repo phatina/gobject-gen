@@ -333,7 +333,7 @@ class Generator(object):
             ]
 
         if data['dispose'] or data['finalize'] or data['private']:
-            lines.append('  GObjectClass *object_class = G_OBJECT_CLASS (klass);')
+            lines.append('  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);')
             lines.append('')
 
         if data['private']:
@@ -345,14 +345,14 @@ class Generator(object):
             lines.append('')
 
         if data['props']:
-            lines.append('  object_class->get_property = %(class_lower)s_get_property;')
-            lines.append('  object_class->set_property = %(class_lower)s_set_property;')
+            lines.append('  gobject_class->get_property = %(class_lower)s_get_property;')
+            lines.append('  gobject_class->set_property = %(class_lower)s_set_property;')
 
         if data['dispose']:
-            lines.append('  object_class->dispose = %(class_lower)s_dispose;')
+            lines.append('  gobject_class->dispose = %(class_lower)s_dispose;')
 
         if data['finalize']:
-            lines.append('  object_class->finalize = %(class_lower)s_finalize;')
+            lines.append('  gobject_class->finalize = %(class_lower)s_finalize;')
 
         lines.append('}')
         return ''.join([line % data + '\n' for line in lines])
