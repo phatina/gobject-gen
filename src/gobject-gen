@@ -183,6 +183,14 @@ static void
 }
 '''
 
+c_template_constructed = '''\
+static void
+%(class_lower)s_constructed (GObject *object)
+{
+  G_OBJECT_CLASS (%(class_lower)s_parent_class)->constructed (object);
+}
+'''
+
 c_template_dispose = '''\
 static void
 %(class_lower)s_dispose (GObject *object)
@@ -199,8 +207,8 @@ static void
 }
 '''
 
-def make_c_template(private=False, props=False, dispose=False,
-                    finalize=False):
+def make_c_template(private=False, props=False, constructed=False,
+                    dispose=False, finalize=False):
     c_template = [c_template_header]
 
     if private:
@@ -221,6 +229,9 @@ def make_c_template(private=False, props=False, dispose=False,
     if props:
         c_template.append(c_template_prop)
 
+    if constructed:
+        c_template.append(c_template_constructed)
+
     if dispose:
         c_template.append(c_template_dispose)
 
@@ -234,8 +245,9 @@ def make_c_template(private=False, props=False, dispose=False,
 
 class Generator(object):
     def __init__(self, klass, parent_class=None, include_private=False,
-            include_getset=False, include_finalize=False,
-            include_dispose=False, filename_separator=None):
+            include_getset=False, include_constructed=False,
+            include_finalize=False, include_dispose=False,
+            filename_separator=None):
         self.klass = klass
 
         if parent_class is None:
@@ -244,6 +256,7 @@ class Generator(object):
 
         self.private = include_private
         self.props = include_getset
+        self.constructed = include_constructed
         self.finalize = include_finalize
         self.dispose = include_dispose
         self.filename_separator = filename_separator
@@ -260,6 +273,7 @@ class Generator(object):
             'parent_camel': self.parent_class,
             'private': self.private,
             'props': self.props,
+            'constructed': self.constructed,
             'finalize': self.finalize,
             'dispose': self.dispose,
             'filename_separator': self.filename_separator}
@@ -312,6 +326,7 @@ class Generator(object):
                 make_c_template(
                     data['private'],
                     data['props'],
+                    data['constructed'],
                     data['dispose'],
                     data['finalize']) % data)
 
@@ -347,6 +362,9 @@ class Generator(object):
         if data['props']:
             lines.append('  gobject_class->get_property = %(class_lower)s_get_property;')
             lines.append('  gobject_class->set_property = %(class_lower)s_set_property;')
+
+        if data['constructed']:
+            lines.append('  gobject_class->constructed = %(class_lower)s_constructed;')
 
         if data['dispose']:
             lines.append('  gobject_class->dispose = %(class_lower)s_dispose;')
@@ -415,12 +433,14 @@ class Generator(object):
 
 
 class GuiGenerator(Generator):
-    def __init__(self, klass=None, parent_class=None, include_private=False,
-            include_getset=False, include_finalize=False,
+    def __init__(self, klass=None, parent_class=None,
+            include_private=False, include_getset=False,
+            include_constructed=False, include_finalize=False,
             include_dispose=False, filename_separator=None):
         super(GuiGenerator, self).__init__(
             klass, parent_class, include_private, include_getset,
-            include_finalize, include_dispose, filename_separator)
+            include_constructed, include_finalize, include_dispose,
+            filename_separator)
 
         # Build the main window.
         self.ui = gtk.Builder()
@@ -445,6 +465,7 @@ class GuiGenerator(Generator):
         # Pre-fill check buttons
         self.ui.get_object('private').set_active(include_private)
         self.ui.get_object('props').set_active(include_getset)
+        self.ui.get_object('constructed').set_active(include_constructed)
         self.ui.get_object('finalize').set_active(include_finalize)
         self.ui.get_object('dispose').set_active(include_dispose)
 
@@ -566,12 +587,14 @@ class GuiGenerator(Generator):
 
 
 class CliGenerator(Generator):
-    def __init__(self, klass, parent_class=None, include_private=False,
-            include_getset=False, include_finalize=False,
+    def __init__(self, klass, parent_class=None,
+            include_private=False, include_getset=False,
+            include_constructed=False, include_finalize=False,
             include_dispose=False, filename_separator=None):
         super(CliGenerator, self).__init__(
             klass, parent_class, include_private, include_getset,
-            include_finalize, include_dispose, filename_separator)
+            include_constructed, include_finalize, include_dispose,
+            filename_separator)
 
     def generate(self):
         # Skip folder argument, we generate in $PWD
@@ -590,6 +613,10 @@ def parse_args(args=sys.argv[1:]):
         '-g', '--include-get-set',
         dest='getset', action='store_true', default=False,
         help='Include GObject property get/set')
+    parser.add_argument(
+        '-t', '--include-constructed',
+        dest='constructed', action='store_true', default=False,
+        help='Include constructed')
     parser.add_argument(
         '-f', '--include-finalize',
         dest='finalize', action='store_true', default=False,
@@ -630,6 +657,7 @@ if __name__ == '__main__':
             parent_class=options.base,
             include_private=options.private,
             include_getset=options.getset,
+            include_constructed=options.constructed,
             include_finalize=options.finalize,
             include_dispose=options.dispose,
             filename_separator=separator)

@@ -245,6 +245,17 @@
                       </packing>
                     </child>
                     <child>
+                      <object class="GtkCheckButton" id="constructed">
+                        <property name="label" translatable="yes">Include constructed</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">False</property>
+                        <property name="draw_indicator">True</property>
+                      </object>
+                      <packing>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
                       <object class="GtkCheckButton" id="finalize">
                         <property name="label" translatable="yes">Include finalize</property>
                         <property name="can_focus">True</property>
@@ -252,7 +263,7 @@
                         <property name="draw_indicator">True</property>
                       </object>
                       <packing>
-                        <property name="position">2</property>
+                        <property name="position">3</property>
                       </packing>
                     </child>
                     <child>
@@ -263,7 +274,7 @@
                         <property name="draw_indicator">True</property>
                       </object>
                       <packing>
-                        <property name="position">3</property>
+                        <property name="position">4</property>
                       </packing>
                     </child>
                   </object>
