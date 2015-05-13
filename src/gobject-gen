@@ -448,7 +448,7 @@ class GuiGenerator(Generator):
         self.ui.add_from_file(
             os.path.join(
                 os.path.dirname(__file__),
-                'ui.xml'))
+                'gobjectui.xml'))
 
         # Pre-fill class name.
         if klass is not None:
