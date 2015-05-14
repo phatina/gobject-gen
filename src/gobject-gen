@@ -141,7 +141,7 @@ static void
 {
 }
 
-%(class_camel)s*
+%(class_camel)s *
 %(class_lower)s_new (void)
 {
   return g_object_new (%(package_upper)s_TYPE_%(object_upper)s, NULL);
