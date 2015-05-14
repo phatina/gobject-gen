@@ -478,8 +478,13 @@ class GuiGenerator(Generator):
         window.show_all()
         window.connect('delete-event', gtk.main_quit);
 
+        # Save button: generates sources to CWD
         button = self.ui.get_object('save-button')
-        button.connect('clicked', self.save_button_cb)
+        button.connect('clicked', self.save_button_cb, self.ui)
+
+        # Save as button: Save dialog is first popped...
+        button = self.ui.get_object('save-as-button')
+        button.connect('clicked', self.save_as_button_cb, self.ui)
 
         button = self.ui.get_object('close-button')
         button.connect('clicked', gtk.main_quit)
@@ -521,19 +526,47 @@ class GuiGenerator(Generator):
         return Generator.make_template_data_with_params(self, package_upper,
             object_upper, class_lower, parent)
 
-    def save_button_cb(self, button):
+    def save_sources(self, folder):
         # Generate data dict for a template.
         data = self.make_template_data()
 
-        # Check for all mandatory fields.
-        if (data['class_lower'] == ''):
+        # Generate sources.
+        self.generate_sources(folder, **data)
+
+    def save_button_check_validity(self, ui):
+        return ui.get_object('class_camel').get_text() and \
+            ui.get_object('class_lower').get_text()
+
+    def save_button_check(self, ui):
+        is_valid = self.save_button_check_validity(ui)
+        if not is_valid:
+            main_window = self.ui.get_object('main-window')
             dlg = gtk.MessageDialog(
-                self.ui.get_object('main-window'),
+                main_window,
                 gtk.DIALOG_MODAL,
-                gtk.MESSAGE_ERROR, gtk.BUTTONS_OK)
-            dlg.set_markup('No class name specified!')
+                gtk.MESSAGE_ERROR,
+                gtk.BUTTONS_OK)
+            dlg.set_title(main_window.get_title())
+
+            dlg.set_markup('Class name missing!')
             dlg.run()
             dlg.destroy()
+        return is_valid
+
+    def save_button_cb(self, button, ui):
+        # Check for mandatory fields.
+        if not self.save_button_check(ui):
+            return
+
+        # Save the source files.
+        self.save_sources(os.getcwd())
+
+        # Quit when saved.
+        gtk.main_quit()
+
+    def save_as_button_cb(self, button, ui):
+        # Check for mandatory fields.
+        if not self.save_button_check(ui):
             return
 
         # Get a save folder.
@@ -552,8 +585,8 @@ class GuiGenerator(Generator):
         if folder is None:
             return
 
-        # Generate sources.
-        self.generate_sources(folder, **data)
+        # Save the source files.
+        self.save_sources(folder)
 
         # Quit when saved.
         gtk.main_quit()
