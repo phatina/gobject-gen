@@ -263,13 +263,18 @@ class Generator(object):
 
     def make_template_data(self):
         package_upper, object_upper, class_lower = self.guess_class_params(self.klass)
+        parent = self.guess_parent_params(self.parent_class)
+        return self.make_template_data_with_params(
+            package_upper, object_upper, class_lower, parent)
 
+    def make_template_data_with_params(self, package_upper, object_upper,
+            class_lower, parent):
         return {
             'class_camel': self.klass,
             'class_lower': class_lower,
             'package_upper': package_upper,
             'object_upper': object_upper,
-            'parent': self.guess_parent_params(self.parent_class),
+            'parent': parent,
             'parent_camel': self.parent_class,
             'private': self.private,
             'props': self.props,
@@ -508,7 +513,13 @@ class GuiGenerator(Generator):
         elif self.ui.get_object('separator-none').get_active():
             self.filename_separator = ''
 
-        return Generator.make_template_data(self)
+        package_upper = self.ui.get_object('package_upper').get_text()
+        object_upper = self.ui.get_object('object_upper').get_text()
+        class_lower = self.ui.get_object('class_lower').get_text()
+        parent = self.ui.get_object('parent').get_text()
+
+        return Generator.make_template_data_with_params(self, package_upper,
+            object_upper, class_lower, parent)
 
     def save_button_cb(self, button):
         # Generate data dict for a template.
