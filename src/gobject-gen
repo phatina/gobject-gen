@@ -189,7 +189,8 @@ c_template_constructed = '''\
 static void
 %(class_lower)s_constructed (GObject *object)
 {
-  G_OBJECT_CLASS (%(class_lower)s_parent_class)->constructed (object);
+  if (G_OBJECT_CLASS (%(class_lower)s_parent_class))
+    G_OBJECT_CLASS (%(class_lower)s_parent_class)->constructed (object);
 }
 '''
 
@@ -197,7 +198,8 @@ c_template_dispose = '''\
 static void
 %(class_lower)s_dispose (GObject *object)
 {
-  G_OBJECT_CLASS (%(class_lower)s_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (%(class_lower)s_parent_class))
+    G_OBJECT_CLASS (%(class_lower)s_parent_class)->dispose (object);
 }
 '''
 
@@ -205,7 +207,8 @@ c_template_finalize = '''\
 static void
 %(class_lower)s_finalize (GObject *object)
 {
-  G_OBJECT_CLASS (%(class_lower)s_parent_class)->finalize (object);
+  if (G_OBJECT_CLASS (%(class_lower)s_parent_class));
+    G_OBJECT_CLASS (%(class_lower)s_parent_class)->finalize (object);
 }
 '''
 
