@@ -207,7 +207,7 @@ c_template_finalize = '''\
 static void
 %(class_lower)s_finalize (GObject *object)
 {
-  if (G_OBJECT_CLASS (%(class_lower)s_parent_class));
+  if (G_OBJECT_CLASS (%(class_lower)s_parent_class))
     G_OBJECT_CLASS (%(class_lower)s_parent_class)->finalize (object);
 }
 '''
