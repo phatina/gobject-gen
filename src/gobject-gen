@@ -155,7 +155,7 @@ typedef struct _%(class_camel)sPrivate %(class_camel)sPrivate;
 c_template_private_def = '''\
 struct _%(class_camel)sPrivate
 {
-  // TODO: Add members here.
+  /* TODO: Add members here. */
 };
 '''
 
