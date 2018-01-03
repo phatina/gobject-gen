@@ -61,11 +61,11 @@ h_template_macros = '''\
 #define %(package_upper)s_IS_%(object_upper)s(o)           (G_TYPE_CHECK_INSTANCE_TYPE  ((o), %(package_upper)s_TYPE_%(object_upper)s))
 #define %(package_upper)s_%(object_upper)s_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sClass))
 #define %(package_upper)s_IS_%(object_upper)s_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), %(package_upper)s_TYPE_%(object_upper)s))
-#define %(package_upper)s_%(object_upper)s_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sClass))
+#define %(package_upper)s_%(object_upper)s_GET_CLASS(o)    (G_TYPE_INSTANCE_GET_CLASS ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sClass))
 '''
 
 h_template_macros_priv = '''\
-#define %(package_upper)s_%(object_upper)s_GET_PRIVATE(o)  ((%(class_camel)sPrivate *)((%(package_upper)s_%(object_upper)s (o))->priv))
+#define %(package_upper)s_%(object_upper)s_GET_PRIVATE(o)  (G_TYPE_INSTANCE_GET_PRIVATE ((o), %(package_upper)s_TYPE_%(object_upper)s, %(class_camel)sPrivate))
 '''
 
 h_template_types_decls = '''\
@@ -119,7 +119,7 @@ struct _%(class_camel)s {
 c_template_class_def_priv = '''\
 struct _%(class_camel)s {
   %(parent_camel)s parent_instance;
-  gpointer priv;
+  %(class_camel)sPrivate *priv;
 };
 '''
 
@@ -130,17 +130,29 @@ struct _%(class_camel)sClass {
 '''
 
 c_template_type = '''\
-G_DEFINE_TYPE (%(class_camel)s, %(class_lower)s, %(parent)s)
+G_DEFINE_TYPE (%(class_camel)s, %(class_lower)s, %(parent)s);
 '''
 
-c_template_body = '''\
+c_template_init = '''\
 %(class_init)s
 
 static void
 %(class_lower)s_init (%(class_camel)s *self)
 {
 }
+'''
 
+c_template_init_priv = '''\
+%(class_init)s
+
+static void
+%(class_lower)s_init (%(class_camel)s *self)
+{
+  self->priv = %(package_upper)s_%(object_upper)s_GET_PRIVATE (self);
+}
+'''
+
+c_template_new = '''\
 %(class_camel)s *
 %(class_lower)s_new (void)
 {
@@ -247,7 +259,12 @@ def make_c_template(private=False, props=False, constructed=False,
     if finalize:
         c_template.append(c_template_finalize)
 
-    c_template.append(c_template_body)
+    if private:
+        c_template.append(c_template_init_priv)
+    else:
+        c_template.append(c_template_init)
+
+    c_template.append(c_template_new)
 
     return '\n'.join(c_template)
 
