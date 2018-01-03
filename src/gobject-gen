@@ -119,7 +119,7 @@ struct _%(class_camel)s {
 c_template_class_def_priv = '''\
 struct _%(class_camel)s {
   %(parent_camel)s parent_instance;
-  gpointer priv;
+  %(class_camel)sPrivate *priv;
 };
 '''
 
