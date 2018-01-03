@@ -130,7 +130,7 @@ struct _%(class_camel)sClass {
 '''
 
 c_template_type = '''\
-G_DEFINE_TYPE (%(class_camel)s, %(class_lower)s, %(parent)s)
+G_DEFINE_TYPE (%(class_camel)s, %(class_lower)s, %(parent)s);
 '''
 
 c_template_body = '''\
